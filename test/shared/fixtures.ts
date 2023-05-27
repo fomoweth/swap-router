@@ -23,9 +23,7 @@ export const getSigners = async (tradersCount?: number) => {
     return { deployer, traders };
 };
 
-export const deployV3Adapter = async () => {
-    const { deployer } = await getSigners();
-
+export const deployV3Adapter = async (deployer: SignerWithAddress) => {
     const adapter = await deployContract<V3Swap>("V3Swap", deployer, [
         utils.formatBytes32String("UNI-V3"),
         WETH_ADDRESS,
@@ -35,9 +33,7 @@ export const deployV3Adapter = async () => {
     return adapter;
 };
 
-export const deployV2Adapters = async () => {
-    const { deployer } = await getSigners();
-
+export const deployV2Adapters = async (deployer: SignerWithAddress) => {
     const v2 = await deployContract<V2Swap>(
         "V2Swap",
         deployer,
@@ -63,9 +59,9 @@ export const deployV2Adapters = async () => {
     return { v2, sushi };
 };
 
-export const deployCurveAdapter = async (): Promise<CurveSwap> => {
-    const { deployer } = await getSigners();
-
+export const deployCurveAdapter = async (
+    deployer: SignerWithAddress
+): Promise<CurveSwap> => {
     const adapter = await deployContract<CurveSwap>("CurveSwap", deployer, [
         utils.formatBytes32String("CURVE"),
         WETH_ADDRESS,
@@ -75,12 +71,12 @@ export const deployCurveAdapter = async (): Promise<CurveSwap> => {
     return adapter;
 };
 
-const deployAdapters = async () => {
-    const v3 = await deployV3Adapter();
+const deployAdapters = async (deployer: SignerWithAddress) => {
+    const v3 = await deployV3Adapter(deployer);
 
-    const { v2, sushi } = await deployV2Adapters();
+    const { v2, sushi } = await deployV2Adapters(deployer);
 
-    const curve = await deployCurveAdapter();
+    const curve = await deployCurveAdapter(deployer);
 
     return { v3, v2, sushi, curve };
 };
@@ -92,7 +88,7 @@ export const completeFixture = async (): Promise<CompleteFixture> => {
         WETH_ADDRESS,
     ]);
 
-    const adapters = await deployAdapters();
+    const adapters = await deployAdapters(deployer);
 
     const adapterAddresses = Object.values(adapters).map(
         (adapter) => adapter.address
