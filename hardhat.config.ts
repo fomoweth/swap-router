@@ -3,12 +3,7 @@ import { HardhatUserConfig } from "hardhat/config";
 import "hardhat-contract-sizer";
 import "hardhat-deploy";
 import "hardhat-tracer";
-import {
-    ChainId,
-    envConfig,
-    getHardhatNetworkConfig,
-    getNetworkConfig,
-} from "./config";
+import { ACCOUNTS, ENV, RPC_URL } from "./config";
 
 const config: HardhatUserConfig = {
     paths: {
@@ -20,7 +15,7 @@ const config: HardhatUserConfig = {
     solidity: {
         compilers: [
             {
-                version: "0.8.17",
+                version: "0.8.15",
                 settings: {
                     viaIR: true,
                     evmVersion: "istanbul",
@@ -36,18 +31,29 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
-        hardhat: getHardhatNetworkConfig(ChainId.MAINNET),
-        mainnet: getNetworkConfig(ChainId.MAINNET),
-        optimism: getNetworkConfig(ChainId.OPTIMISM),
-        polygon: getNetworkConfig(ChainId.POLYGON),
-        arbitrum: getNetworkConfig(ChainId.ARBITRUM),
+        hardhat: {
+            allowUnlimitedContractSize: false,
+            chainId: 1,
+            forking: {
+                url: RPC_URL,
+                blockNumber: !!ENV.FORK_BLOCK_NUMBER
+                    ? +ENV.FORK_BLOCK_NUMBER
+                    : undefined,
+            },
+            accounts: ACCOUNTS,
+        },
+        mainnet: {
+            chainId: 1,
+            url: RPC_URL,
+            accounts: ACCOUNTS,
+        },
     },
     etherscan: {
-        apiKey: envConfig.ETHERSCAN_API_KEY,
+        apiKey: ENV.ETHERSCAN_API_KEY,
     },
     gasReporter: {
-        enabled: envConfig.REPORT_GAS,
-        coinmarketcap: envConfig.CMC_API_KEY,
+        enabled: ENV.REPORT_GAS,
+        coinmarketcap: ENV.CMC_API_KEY,
         currency: "USD",
     },
     contractSizer: {
@@ -63,14 +69,6 @@ const config: HardhatUserConfig = {
         deployer: {
             default: 0,
         },
-    },
-    tracer: {
-        enabled: true,
-        logs: true,
-        calls: true,
-        sstores: false,
-        sloads: false,
-        gasCost: false,
     },
 };
 
