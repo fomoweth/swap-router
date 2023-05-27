@@ -10,7 +10,8 @@
         "clean": "hardhat clean",
         "compile": "hardhat compile",
         "test": "hardhat test",
-        "test:router": "hardhat test ./test/index.ts"
+        "test:router": "hardhat test ./test/router.spec.ts",
+        "test:adapters": "hardhat test ./test/adapters/*.spec.ts"
     },
     "devDependencies": {
         "@nomicfoundation/hardhat-toolbox": "^2.0.2",

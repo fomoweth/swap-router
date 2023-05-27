@@ -1,85 +1,126 @@
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { expect } from "chai";
 import chalk from "chalk";
-import { ethers } from "hardhat";
 import { BigNumber, BigNumberish, utils } from "ethers";
 
-import { FACTORY_ADDRESSES, WETH_ADDRESS } from "../shared/constants/addresses";
+import { CURVE_CONTRACTS, WETH_ADDRESS } from "../shared/constants/addresses";
 import { TokenModel } from "../shared/constants/types";
-import { deployV2Adapters, getSigners } from "../shared/fixtures";
-import makeSuite from "../shared/makeSuite";
-import { sortTokens } from "../shared/utils/addresses";
+import { deployCurveAdapter, getSigners } from "../shared/fixtures";
+import { makeSuite } from "../shared/makeSuite";
+import { getContract } from "../shared/utils/contracts";
 import { seedTokens } from "../shared/utils/funds";
 
 import { queryThenSwap } from "./actions";
 
-import { IUniswapV2Pair__factory, V2Swap } from "../../typechain-types";
+import { CurveSwap, ICryptoPool, ICurvePool } from "../../typechain-types";
 
-makeSuite({ title: chalk.cyanBright("V2 Swap") }, (ctx) => {
+makeSuite({ title: chalk.cyanBright("Curve-Swap\n") }, (ctx) => {
     it("#deployment", async () => {
-        const { deployer, v2, sushi } = await loadFixture(fixtures);
+        const { deployer, adapter } = await loadFixture(fixtures);
 
-        expect(await v2.owner()).to.be.eq(deployer.address);
-        expect(await v2.factory()).to.be.eq(FACTORY_ADDRESSES.UNI_V2);
-        expect(await v2.WETH()).to.be.eq(WETH_ADDRESS);
-        expect(utils.parseBytes32String(await v2.id())).to.be.eq("UNI-V2");
-
-        expect(await sushi.owner()).to.be.eq(deployer.address);
-        expect(await sushi.factory()).to.be.eq(FACTORY_ADDRESSES.SUSHI);
-        expect(await sushi.WETH()).to.be.eq(WETH_ADDRESS);
-        expect(utils.parseBytes32String(await sushi.id())).to.be.eq("SUSHI");
+        expect(await adapter.owner()).to.be.eq(deployer.address);
+        expect(await adapter.stableRegistry()).to.be.eq(
+            CURVE_CONTRACTS.REGISTRY
+        );
+        expect(await adapter.factoryRegistry()).to.be.eq(
+            CURVE_CONTRACTS.META_POOL_FACTORY
+        );
+        expect(await adapter.cryptoRegistry()).to.be.eq(
+            CURVE_CONTRACTS.CRYPTO_SWAP_REGISTRY
+        );
+        expect(await adapter.WETH()).to.be.eq(WETH_ADDRESS);
+        expect(utils.parseBytes32String(await adapter.id())).to.be.eq("CURVE");
     });
 
     behavesLikeAdapter({
-        type: "UNI-V2",
-        tokens: ctx.getTokens("USDC", "WETH"),
+        name: "MIM-3POOL",
+        type: "MetaPool",
+        tokens: ctx.getTokens("MIM", "DAI"),
         amountToSwapInETH: 1,
         slippage: 1, // 0.01%
     });
 
     behavesLikeAdapter({
-        type: "UNI-V2",
-        tokens: ctx.getTokens("WBTC", "WETH"),
+        name: "MIM-3POOL",
+        type: "MetaPool",
+        tokens: ctx.getTokens("MIM", "USDC"),
         amountToSwapInETH: 1,
         slippage: 1, // 0.01%
     });
 
     behavesLikeAdapter({
-        type: "UNI-V2",
-        tokens: ctx.getTokens("WETH", "USDT"),
+        name: "MIM-3POOL",
+        type: "MetaPool",
+        tokens: ctx.getTokens("MIM", "USDT"),
         amountToSwapInETH: 1,
         slippage: 1, // 0.01%
     });
 
     behavesLikeAdapter({
-        type: "SUSHI",
-        tokens: ctx.getTokens("USDC", "WETH"),
-        amountToSwapInETH: 1,
+        name: "TriCrypto2",
+        type: "CryptoPool",
+        tokens: ctx.getTokens("WETH", "WBTC"),
+        amountToSwapInETH: 4,
         slippage: 1, // 0.01%
     });
 
     behavesLikeAdapter({
-        type: "SUSHI",
-        tokens: ctx.getTokens("WBTC", "WETH"),
-        amountToSwapInETH: 1,
+        name: "TriCrypto2",
+        type: "CryptoPool",
+        tokens: ctx.getTokens("WBTC", "USDT"),
+        amountToSwapInETH: 4,
         slippage: 1, // 0.01%
     });
 
     behavesLikeAdapter({
-        type: "SUSHI",
-        tokens: ctx.getTokens("SUSHI", "WETH"),
-        amountToSwapInETH: 1,
+        name: "TriCrypto2",
+        type: "CryptoPool",
+        tokens: ctx.getTokens("USDT", "WETH"),
+        amountToSwapInETH: 4,
         slippage: 1, // 0.01%
+    });
+
+    behavesLikeAdapter({
+        name: "3POOL",
+        type: "StablePool",
+        tokens: ctx.getTokens("USDC", "USDT"),
+        amountToSwapInETH: 3,
+        slippage: 1, // 0.01%
+    });
+
+    behavesLikeAdapter({
+        name: "3POOL",
+        type: "StablePool",
+        tokens: ctx.getTokens("USDT", "DAI"),
+        amountToSwapInETH: 3,
+        slippage: 1, // 0.01%
+    });
+
+    behavesLikeAdapter({
+        name: "3POOL",
+        type: "StablePool",
+        tokens: ctx.getTokens("DAI", "USDC"),
+        amountToSwapInETH: 3,
+        slippage: 1, // 0.01%
+    });
+
+    behavesLikeAdapter({
+        name: "ETH-stETH",
+        type: "StablePool",
+        tokens: ctx.getTokens("ETH", "STETH"),
+        amountToSwapInETH: 8,
+        slippage: 50, // 0.5%
     });
 });
 
 function behavesLikeAdapter(params: {
+    name: string;
     type: string;
     tokens: TokenModel[];
     amountToSwapInETH?: BigNumberish;
     slippage?: BigNumberish;
 }) {
-    let title: string = `[${params.type}]: ${sortTokens(...params.tokens)
+    let title: string = `[${params.type}]: ${params.tokens
         .map((token) => token.symbol)
         .join(" <-> ")}`;
     let ethAmount = params.amountToSwapInETH || 2;
@@ -87,9 +128,9 @@ function behavesLikeAdapter(params: {
 
     context(title, () => {
         it("should query the expected amount out and perform swap (0 -> 1)", async () => {
-            const { traders, v2, sushi } = await loadFixture(fixtures);
+            const { traders, adapter } = await loadFixture(fixtures);
+
             const trader = traders[0];
-            const adapter = params.type === "UNI-V2" ? v2 : sushi;
 
             const [tokenIn, tokenOut] = params.tokens;
 
@@ -121,9 +162,8 @@ function behavesLikeAdapter(params: {
         });
 
         it("should query the expected amount out and perform swap (1 -> 0)", async () => {
-            const { traders, v2, sushi } = await loadFixture(fixtures);
+            const { traders, adapter } = await loadFixture(fixtures);
             const trader = traders[1];
-            const adapter = params.type === "UNI-V2" ? v2 : sushi;
 
             const [tokenOut, tokenIn] = params.tokens;
 
@@ -158,37 +198,37 @@ function behavesLikeAdapter(params: {
 
 const fixtures = async () => {
     const { deployer, traders } = await getSigners();
-    const { v2, sushi } = await deployV2Adapters(deployer);
+    const adapter = await deployCurveAdapter(deployer);
 
     return {
         deployer,
         traders,
-        v2,
-        sushi,
+        adapter,
     };
 };
 
 const getQuote = async (
-    adapter: V2Swap,
+    adapter: CurveSwap,
     tokenIn: string,
     tokenOut: string,
     amountIn: BigNumber
 ): Promise<BigNumber> => {
-    const pairAddress = await adapter.getPool(tokenIn, tokenOut);
-    const pair = IUniswapV2Pair__factory.connect(pairAddress, ethers.provider);
+    const {
+        isCryptoPool,
+        pool: poolAddress,
+        i,
+        j,
+        isUnderlying,
+    } = await adapter.getPoolConfig(tokenIn, tokenOut);
 
-    const { reserve0, reserve1 } = await pair.getReserves();
+    const pool = await getContract<ICurvePool | ICryptoPool>(
+        !isCryptoPool ? "ICurvePool" : "ICryptoPool",
+        poolAddress
+    );
 
-    const [reserveIn, reserveOut] =
-        tokenIn.toLowerCase() < tokenOut.toLowerCase()
-            ? [reserve0, reserve1]
-            : [reserve1, reserve0];
-
-    const amountInWithFee = amountIn.mul(997);
-    const numerator = amountInWithFee.mul(reserveOut);
-    const denominator = reserveIn.mul(1000).add(amountInWithFee);
-
-    const amountOut = numerator.div(denominator);
+    const amountOut = !isUnderlying
+        ? await pool.get_dy(i, j, amountIn)
+        : await pool.get_dy_underlying(i, j, amountIn);
 
     return amountOut;
 };

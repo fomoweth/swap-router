@@ -38,10 +38,10 @@ const ctx: Context = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export default function makeSuite(
+export const makeSuite = (
     config: Config,
     tests: (ctx: Context) => void
-): void {
+): void => {
     if (!!config.tracer) {
         tracer.enable();
     }
@@ -53,4 +53,4 @@ export default function makeSuite(
 
         tests(ctx);
     });
-}
+};

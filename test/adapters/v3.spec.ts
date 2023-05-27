@@ -7,7 +7,7 @@ import { BigNumber, BigNumberish, utils } from "ethers";
 import { FACTORY_ADDRESSES, WETH_ADDRESS } from "../shared/constants/addresses";
 import { TokenModel } from "../shared/constants/types";
 import { deployV3Adapter, getSigners } from "../shared/fixtures";
-import makeSuite from "../shared/makeSuite";
+import { makeSuite } from "../shared/makeSuite";
 import { sortTokens } from "../shared/utils/addresses";
 import { seedTokens } from "../shared/utils/funds";
 
@@ -15,7 +15,7 @@ import { queryThenSwap } from "./actions";
 
 import { IUniswapV3Pool__factory, V3Swap } from "../../typechain-types";
 
-makeSuite({ title: chalk.cyanBright("V3 Swap") }, (ctx) => {
+makeSuite({ title: chalk.cyanBright("V3-Swap\n") }, (ctx) => {
     it("#deployment", async () => {
         const { deployer, adapter } = await loadFixture(fixtures);
 
